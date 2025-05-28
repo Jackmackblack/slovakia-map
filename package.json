@@ -1,0 +1,12 @@
+{
+  "name": "slovakia-map",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "babel src/app.jsx --out-file dist/app.js --watch"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.22.5",
+    "@babel/core": "^7.22.5",
+    "@babel/preset-react": "^7.22.5"
+  }
+}
