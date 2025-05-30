@@ -210,7 +210,7 @@ function App() {
           {pois.map((poi, index) => (
             <div key={index} className="border-b p-2">
               <h3 className="text-lg font-semibold">{poi.properties.name}</h3>
-              <p><strong>Type:</strong> {poi.properties.type.charAt(0).toUpperCase() + type.slice(1)}</p>
+              <p><strong>Type:</strong> {poi.properties.type.charAt(0).toUpperCase() + poi.properties.type.slice(1)}</p>
               <p><strong>Description:</strong> {poi.properties.description}</p>
             </div>
           ))}
