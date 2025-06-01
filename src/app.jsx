@@ -82,9 +82,9 @@ function App() {
     if (selectedPois.length !== 2) return;
     const [poi1, poi2] = selectedPois;
     try {
-	const response = await fetch(
-  `https://corsproxy.io/?${encodeURIComponent(`http://router.project-osrm.org/route/v1/driving/${poi1.geometry.coordinates[0]},${poi1.geometry.coordinates[1]};${poi2.geometry.coordinates[0]},${poi2.geometry.coordinates[1]}?overview=full&geometries=geojson`)}`
-	);
+const response = await fetch(
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(`http://router.project-osrm.org/route/v1/driving/${poi1.geometry.coordinates[0]},${poi1.geometry.coordinates[1]};${poi2.geometry.coordinates[0]},${poi2.geometry.coordinates[1]}?overview=full&geometries=geojson`)}`
+);
       const data = await response.json();
       if (data.routes && data.routes[0]) {
         setRouteInfo({

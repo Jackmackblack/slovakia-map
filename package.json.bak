@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "babel src/app.jsx --out-file dist/app.js"
+	"build": "webpack --mode production"
   },
   "devDependencies": {
     "@babel/cli": "^7.22.5",
