@@ -1,10 +1,14 @@
 const path = require('path');
 module.exports = {
   entry: './src/app.jsx',
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'app.js'
-  },
+ output: {
+  path: path.resolve(__dirname, 'dist'),
+  filename: '[name].[contenthash].js',
+  chunkFilename: '[name].[contenthash].chunk.js',
+},
+optimization: {
+  splitChunks: { chunks: 'all' },
+},
   module: {
     rules: [
       {

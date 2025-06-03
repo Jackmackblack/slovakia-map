@@ -1,19 +1,72 @@
 import { geoJsonData } from './pois.js';
 
+import Autosuggest from 'react-autosuggest';
+
+const suggestions = geoJsonData.features.map(poi => poi.properties.name);
+const getSuggestions = value => {
+  const inputValue = value.trim().toLowerCase();
+  return inputValue.length === 0 ? [] : suggestions.filter(name => name.toLowerCase().includes(inputValue));
+};
+
+const [suggestionsList, setSuggestionsList] = useState([]);
+
+<Autosuggest
+  suggestions={suggestionsList}
+  onSuggestionsFetchRequested={({ value }) => setSuggestionsList(getSuggestions(value))}
+  onSuggestionsClearRequested={() => setSuggestionsList([])}
+  getSuggestionValue={suggestion => suggestion}
+  renderSuggestion={suggestion => <div className="p-2 hover:bg-gray-100">{suggestion}</div>}
+  inputProps={{
+    placeholder: 'Search POIs...',
+    value: searchQuery,
+    onChange: (e, { newValue }) => handleSearch({ target: { value: newValue } }),
+    className: 'w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500'
+  }}
+  theme={{
+    suggestionsContainer: 'bg-white border rounded shadow mt-1',
+    suggestionHighlighted: 'bg-gray-200'
+  }}
+/>
+import { debounce } from 'lodash';
+
+const debouncedSearch = debounce((query) => {
+  setSearchQuery(query);
+  setPois(query ? geoJsonData.features.filter(poi => poi.properties.name.toLowerCase().includes(query)) : geoJsonData.features);
+}, 300);
+
+const handleSearch = (e) => debouncedSearch(e.target.value.toLowerCase());
 const { useState, useEffect, useCallback, useRef, memo } = React;
+
+const Legend = () => (
+  <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow">
+    <h4 className="font-bold text-gray-800">Legend</h4>
+    <div className="flex items-center mt-2"><div className="w-3 h-3 bg-red-500 mr-2"></div><span>Castle</span></div>
+    <div className="flex items-center mt-1"><div className="w-3 h-3 bg-purple-500 mr-2"></div><span>Museum</span></div>
+    <div className="flex items-center mt-1"><div className="w-3 h-3 bg-cyan-500 mr-2"></div><span>Cave</span></div>
+    <div className="flex items-center mt-1"><div className="w-3 h-3 bg-green-500 mr-2"></div><span>Nature</span></div>
+    <div className="flex items-center mt-1"><div className="w-3 h-3 bg-yellow-500 mr-2"></div><span>Church</span></div>
+    <div className="flex items-center mt-1"><div className="w-3 h-3 bg-pink-500 mr-2"></div><span>Village</span></div>
+    <div className="flex items-center mt-1"><div className="w-3 h-3 bg-rose-400 mr-2"></div><span>Spa</span></div>
+  </div>
+);
 
 const MapComponent = memo(({ pois, onSelectPoi, selectedPois, routeGeoJson }) => {
   const mapRef = useRef(null);
 
-  useEffect(() => {
-    if (!mapRef.current) {
-      mapRef.current = L.map('map').setView([48.669, 19.699], 8);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(mapRef.current);
-    }
+useEffect(() => {
+  if (!mapRef.current) {
+    mapRef.current = L.map('map').setView([48.669, 19.699], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(mapRef.current);
+    markersRef.current = L.markerClusterGroup();
+    mapRef.current.addLayer(markersRef.current);
+  }
+}, []);
 
-    const markers = L.markerClusterGroup();
+useEffect(() => {
+  if (markersRef.current) {
+    markersRef.current.clearLayers();
     const geoJsonLayer = L.geoJSON(pois, {
       pointToLayer: (feature, latlng) => {
         return L.circleMarker(latlng, {
@@ -31,34 +84,36 @@ const MapComponent = memo(({ pois, onSelectPoi, selectedPois, routeGeoJson }) =>
       onEachFeature: (feature, layer) => {
         const { name, type, description, image } = feature.properties;
         const popupContent = [
-          '<div class="p-2">',
-          `<h3 class="text-lg font-bold">${name}</h3>`,
-          `<p><strong>Type:</strong> ${type.charAt(0).toUpperCase() + type.slice(1)}</p>`,
-          `<p><strong>Description:</strong> ${description}</p>`,
-          image ? `<img src="${image}" alt="${name}" class="mt-2" />` : '',
+          '<div class="p-3 max-w-xs bg-white rounded shadow">',
+          `<h3 class="text-lg font-bold text-gray-800">${name}</h3>`,
+          `<p class="text-sm text-gray-600"><strong>Type:</strong> ${type.charAt(0).toUpperCase() + type.slice(1)}</p>`,
+          `<p class="text-sm text-gray-600"><strong>Description:</strong> ${description}</p>`,
+          image ? `<img src="${image}" alt="${name}" class="mt-2 w-full h-auto rounded" loading="lazy" />` : '',
           '</div>'
         ].join('');
         layer.bindPopup(popupContent, { maxWidth: 300 });
         layer.on('click', () => onSelectPoi(feature));
       }
     });
-    markers.addLayer(geoJsonLayer);
-    mapRef.current.addLayer(markers);
+    markersRef.current.addLayer(geoJsonLayer);
+  }
+}, [pois, onSelectPoi]);
 
-    // Draw route if available
-    if (routeGeoJson) {
-      const routeLayer = L.geoJSON(routeGeoJson, {
-        style: { color: '#ff0000', weight: 5 }
-      }).addTo(mapRef.current);
-      mapRef.current.fitBounds(routeLayer.getBounds());
-    }
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
+useEffect(() => {
+  if (mapRef.current && routeGeoJson) {
+    const routeLayer = L.geoJSON(routeGeoJson, {
+      style: { color: '#ff0000', weight: 5 }
+    }).addTo(mapRef.current);
+    mapRef.current.fitBounds(routeLayer.getBounds());
+    return () => mapRef.current.removeLayer(routeLayer);
+  }
+}, [routeGeoJson]);
+return (
+  <div className="relative">
+    <div id="map" className="mb-4 h-[500px] w-full rounded-lg shadow"></div>
+    <Legend />
+  </div>
+);
   }, [pois, onSelectPoi, routeGeoJson]);
 
   return <div id="map" className="mb-4"></div>;
@@ -146,10 +201,12 @@ const response = await fetch(
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Slovakia Tourist Map</h1>
-      <div className="mb-4 flex flex-wrap gap-4">
-        <select onChange={handleFilterChange} className="border p-2 rounded">
+<div className="container mx-auto p-6 bg-gray-50 min-h-screen">
+  <h1 className="text-3xl font-bold text-center text-blue-600 mb-6">Slovakia Tourist Map</h1>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="col-span-1">
+      <div className="bg-white p-4 rounded-lg shadow">
+        <select onChange={handleFilterChange} className="w-full border p-2 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">All Types</option>
           <option value="castle">Castle</option>
           <option value="museum">Museum</option>
@@ -164,59 +221,56 @@ const response = await fetch(
           placeholder="Search POIs..."
           value={searchQuery}
           onChange={handleSearch}
-          className="border p-2 rounded"
+          className="w-full border p-2 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <input
           type="number"
           placeholder="Distance (km)"
           value={searchDistance}
           onChange={(e) => setSearchDistance(e.target.value)}
-          className="border p-2 rounded"
+          className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
-      {selectedPois.length > 0 && (
-        <div className="mb-4 p-2 bg-blue-500 rounded">
-          <p className="text-white"><strong>Selected POIs:</strong> {selectedPois.map(p => p.properties.name).join(' to ')}</p>
-          {routeInfo && (
-            <>
-              <p className="text-white"><strong>Distance:</strong> {routeInfo.distance} km</p>
-              <p className="text-white"><strong>Duration:</strong> {routeInfo.duration} hours</p>
-            </>
-          )}
-          <button
-            onClick={handleCalculateRoute}
-            className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 mr-2"
-            disabled={selectedPois.length !== 2}
-          >
-            Calculate Route
-          </button>
-          <button
-            onClick={handleClearRoute}
-            className="bg-red-500 text-white p-2 rounded hover:bg-red-600"
-          >
-            Clear Route
-          </button>
-        </div>
-      )}
-      <MapComponent
-        pois={pois}
-        onSelectPoi={handleSelectPoi}
-        selectedPois={selectedPois}
-        routeGeoJson={routeGeoJson}
-      />
-      <div className="mt-4">
-        <h2 className="text-lg font-semibold mb-2">Available POIs</h2>
-        <div className="accordion-content">
-          {pois.map((poi, index) => (
-            <div key={index} className="border-b p-2">
-              <h3 className="text-lg font-semibold">{poi.properties.name}</h3>
-              <p><strong>Type:</strong> {poi.properties.type.charAt(0).toUpperCase() + poi.properties.type.slice(1)}</p>
-              <p><strong>Description:</strong> {poi.properties.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
+    <div className="col-span-2">
+      <MapComponent pois={pois} onSelectPoi={handleSelectPoi} selectedPois={selectedPois} routeGeoJson={routeGeoJson} />
+    </div>
+  </div>
+  {selectedPois.length > 0 && (
+    <div className="mt-6 p-4 bg-blue-100 rounded-lg shadow">
+      <p className="text-gray-800"><strong>Selected POIs:</strong> {selectedPois.map(p => p.properties.name).join(' to ')}</p>
+      {routeInfo && (
+        <>
+          <p className="text-gray-800"><strong>Distance:</strong> {routeInfo.distance} km</p>
+          <p className="text-gray-800"><strong>Duration:</strong> {routeInfo.duration} hours</p>
+        </>
+      )}
+<button
+  onClick={() => {
+    setFilterType('');
+    setSearchQuery('');
+    setSearchDistance('');
+    setPois(geoJsonData.features);
+  }}
+  className="w-full mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-600"
+>
+  Reset Filters
+</button>
+    </div>
+  )}
+  <div className="mt-6 bg-white p-4 rounded-lg shadow">
+    <h2 className="text-xl font-semibold text-gray-800 mb-4">Available POIs</h2>
+    <div className="space-y-4">
+      {pois.map((poi, index) => (
+        <div key={index} className="p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition">
+          <h3 className="text-lg font-semibold text-gray-900">{poi.properties.name}</h3>
+          <p className="text-sm text-gray-600"><strong>Type:</strong> {poi.properties.type.charAt(0).toUpperCase() + poi.properties.type.slice(1)}</p>
+          <p className="text-sm text-gray-600"><strong>Description:</strong> {poi.properties.description}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
   );
 }
 
